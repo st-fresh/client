@@ -14,7 +14,6 @@ import * as RowSizes from './row/sizes'
 import InboxSearch from '../inbox-search/container'
 import * as T from './index.types.d'
 import * as Types from '../../constants/types/chat2'
-import Flags from '../../util/feature-flags'
 
 const NoChats = (props: {onNewChat: () => void}) => (
   <Kb.Box2
@@ -36,11 +35,7 @@ const NoChats = (props: {onNewChat: () => void}) => (
         end-to-end encrypted.
       </Kb.Text>
     </Kb.Box2>
-    <Kb.Button
-      onClick={props.onNewChat}
-      mode="Primary"
-      label={Flags.wonderland ? 'Start a new chat 🐇' : 'Start a new chat'}
-    />
+    <Kb.Button onClick={props.onNewChat} mode="Primary" label="Start a new chat" />
   </Kb.Box2>
 )
 

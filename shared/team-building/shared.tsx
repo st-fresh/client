@@ -1,26 +1,25 @@
 import * as Styles from '../styles'
 import {ServiceIdWithContact, ServiceMap} from '../constants/types/team-building'
 import {IconType} from '../common-adapters/icon.constants-gen'
-import Flags from '../util/feature-flags'
 import {allServices} from '../constants/team-building'
 
 const services: {
   [K in ServiceIdWithContact]: {
+    badge?: boolean
     color: string
     icon: IconType
     label: string
     longLabel: Array<string>
     searchPlaceholder: string
-    wonderland?: boolean
   }
 } = {
   email: {
+    badge: true,
     color: '#3663ea',
     icon: 'iconfont-mention',
     label: 'Email', // TODO: rethink this for the empty state when we're actually using it
     longLabel: ['An email', 'address'],
     searchPlaceholder: 'email',
-    wonderland: true,
   },
   facebook: {
     color: '#3B5998',
@@ -51,12 +50,12 @@ const services: {
     searchPlaceholder: Styles.isMobile ? 'Keybase & contacts' : 'Keybase',
   },
   phone: {
+    badge: true,
     color: '#3663ea',
     icon: 'iconfont-number-pad',
     label: 'Phone',
     longLabel: ['A phone', 'number'],
     searchPlaceholder: 'phone',
-    wonderland: true,
   },
   reddit: {
     color: '#ff4500',
@@ -80,8 +79,7 @@ const serviceIdToLabel = (service: ServiceIdWithContact): string => services[ser
 const serviceIdToLongLabel = (service: ServiceIdWithContact): Array<string> => services[service].longLabel
 const serviceIdToSearchPlaceholder = (service: ServiceIdWithContact): string =>
   services[service].searchPlaceholder
-const serviceIdToWonderland = (service: ServiceIdWithContact): boolean =>
-  Flags.wonderland && services[service].wonderland === true
+const serviceIdToBadge = (service: ServiceIdWithContact): boolean => services[service].badge === true
 
 const serviceMapToArray = (services: ServiceMap) => allServices.filter(x => x !== 'keybase' && x in services)
 
@@ -91,6 +89,6 @@ export {
   serviceIdToLabel,
   serviceIdToLongLabel,
   serviceIdToSearchPlaceholder,
-  serviceIdToWonderland,
+  serviceIdToBadge,
   serviceMapToArray,
 }

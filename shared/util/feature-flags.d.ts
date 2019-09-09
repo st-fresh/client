@@ -15,7 +15,6 @@ export type FeatureFlags = {
   proofProviders: boolean
   stellarExternalPartners: boolean
   lagRadar: boolean
-  wonderland: boolean
 }
 
 declare const ff: FeatureFlags
