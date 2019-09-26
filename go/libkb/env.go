@@ -71,7 +71,11 @@ func (n NullConfiguration) GetTimers() string                                   
 func (n NullConfiguration) GetDeviceID() keybase1.DeviceID                                 { return "" }
 func (n NullConfiguration) GetDeviceIDForUsername(un NormalizedUsername) keybase1.DeviceID { return "" }
 func (n NullConfiguration) GetDeviceIDForUID(u keybase1.UID) keybase1.DeviceID             { return "" }
-func (n NullConfiguration) GetProxyCACerts() ([]string, error)                             { return nil, nil }
+func (n NullConfiguration) GetHasRandomPassphrase() (bool, bool)                           { return false, false }
+func (n NullConfiguration) GetHasRandomPassphraseForUsername(un NormalizedUsername) (bool, bool) {
+	return false, false
+}
+func (n NullConfiguration) GetProxyCACerts() ([]string, error) { return nil, nil }
 func (n NullConfiguration) GetUsernameForUID(u keybase1.UID) NormalizedUsername {
 	return NormalizedUsername("")
 }
@@ -132,6 +136,7 @@ func (n NullConfiguration) GetForceLinuxKeyring() (bool, bool)              { re
 func (n NullConfiguration) GetForceSecretStoreFile() (bool, bool)           { return false, false }
 func (n NullConfiguration) GetChatOutboxStorageEngine() string              { return "" }
 func (n NullConfiguration) GetRuntimeStatsEnabled() (bool, bool)            { return false, false }
+
 func (n NullConfiguration) GetBug3964RepairTime(NormalizedUsername) (time.Time, error) {
 	return time.Time{}, nil
 }
@@ -1575,6 +1580,14 @@ func (e *Env) GetDeviceID() keybase1.DeviceID {
 
 func (e *Env) GetDeviceIDForUsername(u NormalizedUsername) keybase1.DeviceID {
 	return e.GetConfig().GetDeviceIDForUsername(u)
+}
+
+func (e *Env) GetHasRandomPassphrase() (bool, bool) {
+	return e.GetConfig().GetHasRandomPassphrase()
+}
+
+func (e *Env) GetHasRandomPassphraseForUsername(u NormalizedUsername) (bool, bool) {
+	return e.GetConfig().GetHasRandomPassphraseForUsername(u)
 }
 
 func (e *Env) GetDeviceIDForUID(u keybase1.UID) keybase1.DeviceID {

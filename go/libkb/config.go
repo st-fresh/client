@@ -111,6 +111,17 @@ func (f *JSONConfigFile) GetDeviceIDForUsername(nu NormalizedUsername) keybase1.
 	return ret.GetDeviceID()
 }
 
+func (f *JSONConfigFile) GetHasRandomPassphraseForUsername(nu NormalizedUsername) (bool, bool) {
+	f.userConfigWrapper.Lock()
+	defer f.userConfigWrapper.Unlock()
+	ret, err := f.GetUserConfigForUsername(nu)
+	var empty bool
+	if err != nil {
+		return empty, false
+	}
+	return ret.GetHasRandomPassphrase(), true
+}
+
 func (f *JSONConfigFile) GetDeviceIDForUID(u keybase1.UID) keybase1.DeviceID {
 	f.userConfigWrapper.Lock()
 	defer f.userConfigWrapper.Unlock()
@@ -505,6 +516,14 @@ func (f *JSONConfigFile) GetDeviceID() (ret keybase1.DeviceID) {
 		ret = uc.GetDeviceID()
 	}
 	return ret
+}
+
+func (f *JSONConfigFile) GetHasRandomPassphrase() (bool, bool) {
+	var ret bool
+	if uc, _ := f.GetUserConfig(); uc != nil {
+		ret = uc.GetHasRandomPassphrase()
+	}
+	return ret, true
 }
 
 func (f *JSONConfigFile) GetTorMode() (ret TorMode, err error) {
@@ -933,3 +952,19 @@ func (f *JSONConfigFile) GetChatOutboxStorageEngine() string {
 func (f *JSONConfigFile) GetRuntimeStatsEnabled() (bool, bool) {
 	return f.GetBoolAtPath("runtime_stats_enabled")
 }
+
+// func (f *JSONConfigFile) GetHasRandomPassphrase(username NormalizedUsername) (bool, bool) {
+// 	ret, err := f.GetPerUserValue(username, "has_random_passphrase")
+// 	if err != nil {
+// 		return false, false
+// 	}
+// 	retBool, ok := ret.(bool)
+// 	if !ok {
+// 		return false, false
+// 	}
+// 	return retBool, true
+// }
+
+// func (f *JSONConfigFile) SetHasRandomPassphrase(username NormalizedUsername, hasRandomPassphrase bool) error {
+// 	return f.SetPerUserValue(username, "has_random_passphrase", hasRandomPassphrase)
+// }
