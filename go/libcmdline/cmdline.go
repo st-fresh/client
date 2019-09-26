@@ -4,6 +4,8 @@
 package libcmdline
 
 import (
+	"fmt"
+	"io"
 	"strings"
 	"time"
 
@@ -452,4 +454,414 @@ func (p CommandLine) GetForceSecretStoreFile() (bool, bool) {
 
 func (p CommandLine) GetRuntimeStatsEnabled() (bool, bool) {
 	return false, false
+}
+
+func (p CommandLine) GetAttachmentHTTPStartPort() (int, bool) {
+	ret := p.GetGInt("attachment-httpsrv-port")
+	if ret != 0 {
+		return ret, true
+	}
+	return 0, false
+}
+
+func (p CommandLine) GetChatOutboxStorageEngine() string {
+	return p.GetGString("chat-outboxstorageengine")
+}
+
+func (p CommandLine) GetBool(s string, glbl bool) (bool, bool) {
+	var v bool
+	if glbl {
+		v = p.ctx.GlobalBool(s)
+	} else {
+		v = p.ctx.Bool(s)
+	}
+	return v, v
+}
+
+type CmdBaseHelp struct {
+	ctx *cli.Context
+}
+
+func (c *CmdBaseHelp) GetUsage() libkb.Usage {
+	return libkb.Usage{}
+}
+func (c *CmdBaseHelp) ParseArgv(*cli.Context) error { return nil }
+
+type CmdGeneralHelp struct {
+	CmdBaseHelp
+}
+
+func (c *CmdBaseHelp) RunClient() error { return c.Run() }
+
+func (c *CmdBaseHelp) Run() error {
+	cli.ShowAppHelp(c.ctx)
+	return nil
+}
+
+type CmdSpecificHelp struct {
+	CmdBaseHelp
+	name string
+}
+
+func (c CmdSpecificHelp) Run() error {
+	cli.ShowCommandHelp(c.ctx, c.name)
+	return nil
+}
+
+func NewCommandLine(addHelp bool, extraFlags []cli.Flag) *CommandLine {
+	app := cli.NewApp()
+	ret := &CommandLine{app: app, fork: NormalFork}
+	ret.PopulateApp(addHelp, extraFlags)
+	return ret
+}
+
+func (p *CommandLine) PopulateApp(addHelp bool, extraFlags []cli.Flag) {
+	app := p.app
+	app.Name = "keybase"
+	app.EnableBashCompletion = true
+	app.Version = libkb.VersionString()
+	app.Usage = "Keybase command line client."
+
+	app.Flags = []cli.Flag{
+		cli.BoolFlag{
+			Name:  "api-dump-unsafe",
+			Usage: "Dump API call internals (may leak secrets).",
+		},
+		cli.StringFlag{
+			Name:  "api-timeout",
+			Usage: "set the HTTP timeout for API calls to the keybase API server",
+		},
+		cli.StringFlag{
+			Name:  "api-uri-path-prefix",
+			Usage: "Specify an alternate API URI path prefix.",
+		},
+		cli.StringFlag{
+			Name:  "app-start-mode",
+			Usage: "Specify 'service' to auto-start UI app, or anything else to disable",
+		},
+		cli.BoolFlag{
+			Name:  "bg-identifier-disabled",
+			Usage: "supply to disable the BG identifier loop",
+		},
+		cli.StringFlag{
+			Name:  "chat-db",
+			Usage: "Specify an alternate local Chat DB location.",
+		},
+		cli.StringFlag{
+			Name:  "code-signing-kids",
+			Usage: "Set of code signing key IDs (colon-separated).",
+		},
+		cli.StringFlag{
+			Name:  "config-file, c",
+			Usage: "Specify an (alternate) master config file.",
+		},
+		cli.BoolFlag{
+			Name:  "use-root-config-file",
+			Usage: "Use the default root config on Linux only.",
+		},
+		cli.StringFlag{
+			Name:  "db",
+			Usage: "Specify an alternate local DB location.",
+		},
+		cli.BoolFlag{
+			Name:  "debug, d",
+			Usage: "Enable debugging mode.",
+		},
+		cli.BoolFlag{
+			Name: "disable-cert-pinning",
+			Usage: "Disable certificate pinning within the app. WARNING: This reduces the security of the app. Do not use " +
+				"unless necessary! This should only be used if you are running keybase behind a proxy that does TLS interception.",
+		},
+		cli.BoolFlag{
+			Name:  "display-raw-untrusted-output",
+			Usage: "Display output from users (messages, chats, ...) in the terminal without escaping terminal codes. WARNING: maliciously crafted unescaped outputs can overwrite anything you see on the terminal.",
+		},
+		cli.StringFlag{
+			Name:  "features",
+			Usage: "specify experimental feature flags",
+		},
+		cli.StringFlag{
+			Name:  "gpg",
+			Usage: "Path to GPG client (optional for exporting keys).",
+		},
+		cli.StringFlag{
+			Name:  "gpg-options",
+			Usage: "Options to use when calling GPG.",
+		},
+		cli.StringFlag{
+			Name:  "home, H",
+			Usage: "Specify an (alternate) home directory.",
+		},
+		cli.IntFlag{
+			Name:  "leveldb-num-files",
+			Usage: "Specify the max number of files LevelDB may open",
+		},
+		cli.StringFlag{
+			Name:  "local-rpc-debug-unsafe",
+			Usage: "Use to debug local RPC (may leak secrets).",
+		},
+		cli.StringFlag{
+			Name:  "log-file",
+			Usage: "Specify a log file for the keybase service.",
+		},
+		cli.StringFlag{
+			Name:  "ek-log-file",
+			Usage: "Specify a log file for the keybase ephemeral key log.",
+		},
+		cli.StringFlag{
+			Name:  "log-format",
+			Usage: "Log format (default, plain, file, fancy).",
+		},
+		cli.StringFlag{
+			Name:  "log-prefix",
+			Usage: "Specify a prefix for a unique log file name.",
+		},
+		cli.StringFlag{
+			Name:  "merkle-kids",
+			Usage: "Set of admissible Merkle Tree fingerprints (colon-separated).",
+		},
+		cli.BoolFlag{
+			Name:  "no-debug",
+			Usage: "Suppress debugging mode; takes precedence over --debug.",
+		},
+		cli.StringFlag{
+			Name:  "pgpdir, gpgdir",
+			Usage: "Specify a PGP directory (default is ~/.gnupg).",
+		},
+		cli.StringFlag{
+			Name:  "pid-file",
+			Usage: "Location of the keybased pid-file (to ensure only one running daemon).",
+		},
+		cli.StringFlag{
+			Name:  "pinentry",
+			Usage: "Specify a path to find a pinentry program.",
+		},
+		cli.IntFlag{
+			Name:  "proof-cache-size",
+			Usage: "Number of proof entries to cache.",
+		},
+		cli.StringFlag{
+			Name:  "proxy",
+			Usage: "Specify a proxy to ship all Web requests over; Must be used with --proxy-type; Example: localhost:8080",
+		},
+		cli.StringFlag{
+			Name:  "proxy-type",
+			Usage: fmt.Sprintf("set the proxy type; One of: %s", libkb.GetCommaSeparatedListOfProxyTypes()),
+		},
+		cli.BoolFlag{
+			Name:  "push-disabled",
+			Usage: "Disable push server connection (which is on by default)",
+		},
+		cli.IntFlag{
+			Name:  "push-save-interval",
+			Usage: "Set the interval between saves of the push cache (in seconds)",
+		},
+		cli.StringFlag{
+			Name:  "push-server-uri",
+			Usage: "Specify a URI for contacting the Keybase push server",
+		},
+		cli.StringFlag{
+			Name:  "pvl-kit",
+			Usage: "Specify an alternate local PVL kit file location.",
+		},
+		cli.StringFlag{
+			Name:  "paramproof-kit",
+			Usage: "Specify an alternate local parameterized proof kit file location.",
+		},
+		cli.BoolFlag{
+			Name:  "prove-bypass",
+			Usage: "Prove even disabled proof services",
+		},
+		cli.BoolFlag{
+			Name:  "remember-passphrase",
+			Usage: "Remember keybase passphrase",
+		},
+		cli.StringFlag{
+			Name:  "run-mode",
+			Usage: "Run mode (devel, staging, prod).", // These are defined in libkb/constants.go
+		},
+		cli.StringFlag{
+			Name:  "scraper-timeout",
+			Usage: "set the HTTP timeout for external proof scrapers",
+		},
+		cli.StringFlag{
+			Name:  "secret-keyring",
+			Usage: "Location of the Keybase secret-keyring (P3SKB-encoded).",
+		},
+		cli.StringFlag{
+			Name:  "server, s",
+			Usage: "Specify server API.",
+		},
+		cli.StringFlag{
+			Name:  "session-file",
+			Usage: "Specify an alternate session data file.",
+		},
+		cli.BoolFlag{
+			Name:  "slow-gregor-conn",
+			Usage: "Slow responses from gregor for testing",
+		},
+		cli.BoolFlag{
+			Name:  "read-deleted-sigchain",
+			Usage: "Allow admins to read deleted sigchains for debugging.",
+		},
+		cli.StringFlag{
+			Name:  "socket-file",
+			Usage: "Location of the keybased socket-file.",
+		},
+		cli.BoolFlag{
+			Name:  "standalone",
+			Usage: "Use the client without any daemon support.",
+		},
+		cli.StringFlag{
+			Name:  "timers",
+			Usage: "Specify 'a' for API; 'r' for RPCs; and 'x' for eXternal API calls",
+		},
+		cli.StringFlag{
+			Name:  "tor-hidden-address",
+			Usage: fmt.Sprintf("set TOR address of keybase server; defaults to %s", libkb.TorServerURI),
+		},
+		cli.StringFlag{
+			Name:  "tor-mode",
+			Usage: "set TOR mode to be 'leaky', 'none', or 'strict'. 'none' by default. See 'help tor' for more details.",
+		},
+		cli.StringFlag{
+			Name:  "tor-proxy",
+			Usage: fmt.Sprintf("set TOR proxy; when Tor mode is on; defaults to %s when TOR is enabled", libkb.TorProxy),
+		},
+		cli.StringFlag{
+			Name:  "updater-config-file",
+			Usage: "Specify a path to the updater config file",
+		},
+		cli.StringFlag{
+			Name:  "gui-config-file",
+			Usage: "Specify a path to the GUI config file",
+		},
+		cli.BoolFlag{
+			Name:  "upgrade-per-user-key",
+			Usage: "Create new per-user-keys. Experimental, will break sigchain!",
+		},
+		cli.BoolFlag{
+			Name:  "use-default-log-file",
+			Usage: "Log to the default log file in $XDG_CACHE_HOME, or ~/.cache if unset.",
+		},
+		cli.IntFlag{
+			Name:  "user-cache-size",
+			Usage: "Number of User entries to cache.",
+		},
+		cli.StringFlag{
+			Name:  "vdebug",
+			Usage: "Verbose debugging; takes a comma-joined list of levels and tags",
+		},
+		cli.BoolFlag{
+			Name:  "disable-team-auditor",
+			Usage: "Disable auditing of teams",
+		},
+		cli.BoolFlag{
+			Name:  "disable-team-box-auditor",
+			Usage: "Disable box auditing of teams",
+		},
+		cli.BoolFlag{
+			Name:  "disable-merkle-auditor",
+			Usage: "Disable background probabilistic merkle audit",
+		},
+		cli.BoolFlag{
+			Name:  "disable-search-indexer",
+			Usage: "Disable chat search background indexer",
+		},
+		cli.BoolFlag{
+			Name:  "disable-bg-conv-loader",
+			Usage: "Disable background conversation loading",
+		},
+		cli.BoolFlag{
+			Name:  "enable-bot-lite-mode",
+			Usage: "Enable bot lite mode. Disables non-critical background services for bot performance.",
+		},
+		cli.BoolFlag{
+			Name:  "force-linux-keyring",
+			Usage: "Require the use of the OS keyring (Gnome Keyring or KWallet) and fail if not available rather than falling back to file-based secret store.",
+		},
+		cli.BoolFlag{
+			Name:  "extra-net-logging",
+			Usage: "Do additional debug logging during network requests.",
+		},
+	}
+	if extraFlags != nil {
+		app.Flags = append(app.Flags, extraFlags...)
+	}
+
+	app.Commands = []cli.Command{}
+}
+
+func filter(cmds []cli.Command, fn func(cli.Command) bool) []cli.Command {
+	var filter []cli.Command
+	for _, cmd := range cmds {
+		if fn(cmd) {
+			filter = append(filter, cmd)
+		}
+	}
+	return filter
+}
+
+func (p *CommandLine) AddCommands(cmds []cli.Command) {
+	cmds = filter(cmds, func(c cli.Command) bool {
+		return c.Name != ""
+	})
+	p.app.Commands = append(p.app.Commands, cmds...)
+}
+
+func (p *CommandLine) SetDefaultCommand(name string, cmd Command) {
+	p.defaultCmd = name
+	p.app.Action = func(c *cli.Context) {
+		p.cmd = cmd
+		p.ctx = c
+		p.name = name
+	}
+}
+
+// Called back from inside our subcommands, when they're picked...
+func (p *CommandLine) ChooseCommand(cmd Command, name string, ctx *cli.Context) {
+	p.cmd = cmd
+	p.name = name
+	p.ctx = ctx
+}
+
+func (p *CommandLine) Parse(args []string) (cmd Command, err error) {
+	// This is suboptimal, but the default help action when there are
+	// no args crashes.
+	// (cli sets HelpPrinter to nil when p.app.Run(...) returns.)
+	if len(args) == 1 && p.defaultCmd == "help" {
+		args = append(args, p.defaultCmd)
+	}
+
+	// Actually pick a command
+	err = p.app.Run(args)
+
+	// Should not be populated
+	cmd = p.cmd
+
+	if err != nil || cmd == nil {
+		return
+	}
+
+	// cli.HelpPrinter is nil here...anything that needs it will panic.
+
+	// If we failed to parse arguments properly, switch to the help command
+	if err = p.cmd.ParseArgv(p.ctx); err == nil {
+		_, err = p.GetRunMode()
+	}
+	if err != nil {
+		cmd = &CmdSpecificHelp{CmdBaseHelp{p.ctx}, p.name}
+	}
+
+	return
+}
+
+func (p *CommandLine) SetOutputWriter(w io.Writer) {
+	p.app.Writer = w
+}
+
+// AddHelpTopics appends topics to the list of help topics for
+// this app.
+func (p *CommandLine) AddHelpTopics(topics []cli.HelpTopic) {
+	p.app.HelpTopics = append(p.app.HelpTopics, topics...)
 }
