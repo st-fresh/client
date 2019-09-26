@@ -111,15 +111,14 @@ func (f *JSONConfigFile) GetDeviceIDForUsername(nu NormalizedUsername) keybase1.
 	return ret.GetDeviceID()
 }
 
-func (f *JSONConfigFile) GetHasRandomPassphraseForUsername(nu NormalizedUsername) (bool, bool) {
+func (f *JSONConfigFile) GetPassphraseStateForUsername(nu NormalizedUsername) (ret keybase1.PassphraseState, err error) {
 	f.userConfigWrapper.Lock()
 	defer f.userConfigWrapper.Unlock()
 	ret, err := f.GetUserConfigForUsername(nu)
-	var empty bool
 	if err != nil {
-		return empty, false
+		return ret, err
 	}
-	return ret.GetHasRandomPassphrase(), true
+	return ret.GetPassphraseState(), nil
 }
 
 func (f *JSONConfigFile) GetDeviceIDForUID(u keybase1.UID) keybase1.DeviceID {
@@ -518,12 +517,27 @@ func (f *JSONConfigFile) GetDeviceID() (ret keybase1.DeviceID) {
 	return ret
 }
 
-func (f *JSONConfigFile) GetHasRandomPassphrase() (bool, bool) {
-	var ret bool
-	if uc, _ := f.GetUserConfig(); uc != nil {
-		ret = uc.GetHasRandomPassphrase()
+func (f *JSONConfigFile) GetPassphraseState() (ret *keybase1.PassphraseState) {
+	if uc, err := f.GetUserConfig(); uc != nil && err != nil {
+		ret = uc.GetPassphraseState()
 	}
-	return ret, true
+	return ret
+}
+
+func (f *JSONConfigFile) SetPassphraseState(passphraseState keybase1.PassphraseState) (err error) {
+	f.userConfigWrapper.Lock()
+	defer f.userConfigWrapper.Unlock()
+
+	f.G().Log.Debug("| Setting PassphraseState to %v\n", PassphraseState)
+	var u *UserConfig
+	if u, err = f.getUserConfigWithLock(); err != nil {
+	} else if u == nil {
+		err = NoUserConfigError{}
+	} else {
+		u.SetPassphraseState(passphraseState)
+		err = f.setUserConfigWithLock(u, true)
+	}
+	return
 }
 
 func (f *JSONConfigFile) GetTorMode() (ret TorMode, err error) {
@@ -952,19 +966,3 @@ func (f *JSONConfigFile) GetChatOutboxStorageEngine() string {
 func (f *JSONConfigFile) GetRuntimeStatsEnabled() (bool, bool) {
 	return f.GetBoolAtPath("runtime_stats_enabled")
 }
-
-// func (f *JSONConfigFile) GetHasRandomPassphrase(username NormalizedUsername) (bool, bool) {
-// 	ret, err := f.GetPerUserValue(username, "has_random_passphrase")
-// 	if err != nil {
-// 		return false, false
-// 	}
-// 	retBool, ok := ret.(bool)
-// 	if !ok {
-// 		return false, false
-// 	}
-// 	return retBool, true
-// }
-
-// func (f *JSONConfigFile) SetHasRandomPassphrase(username NormalizedUsername, hasRandomPassphrase bool) error {
-// 	return f.SetPerUserValue(username, "has_random_passphrase", hasRandomPassphrase)
-// }

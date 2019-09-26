@@ -58,15 +58,10 @@ func (r *userHandler) identityChange(m libkb.MetaContext) error {
 func (r *userHandler) passwordChange(m libkb.MetaContext, cli gregor1.IncomingInterface, category string, item gregor.Item) error {
 	m.Debug("userHandler: %s received", category)
 
-	cacheKey := libkb.DbKey{
-		Typ: libkb.DBHasRandomPW,
-		Key: m.CurrentUID().String(),
-	}
-	hasRandomPW := false
-	if err := m.G().GetKVStore().PutObj(cacheKey, nil, hasRandomPW); err == nil {
-		m.Debug("Adding HasRandomPW=%t to KVStore after %s notification", hasRandomPW, category)
+	if err := m.G().Env.GetConfigWriter().SetHasRandomPassphrase(false); err != nil {
+		m.Debug("Unable to add HasRandomPW state to KVStore after %s notification: %s", category, err)
 	} else {
-		m.Debug("Unable to add HasRandomPW state to KVStore after %s notification", category)
+		m.Debug("Added HasRandomPW=false to config file after %s notification", category)
 	}
 
 	r.G().NotifyRouter.HandlePasswordChanged(m.Ctx())

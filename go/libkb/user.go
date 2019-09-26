@@ -873,13 +873,13 @@ func (u *User) IsCachedIdentifyFresh(upk *keybase1.UserPlusKeysV2AllIncarnations
 	return true
 }
 
-func LoadHasRandomPw(mctx MetaContext, arg keybase1.LoadHasRandomPwArg) (res bool, err error) {
+func LoadPassphraseState(mctx MetaContext, arg keybase1.LoadPassphraseStateArg) (passphraseState keybase1.PassphraseState, err error) {
 	mctx = mctx.WithLogTag("HASRPW")
-	defer mctx.TraceTimed(fmt.Sprintf("User#LoadHasRandomPw(forceRepoll=%t)", arg.ForceRepoll), func() error { return err })()
+	defer mctx.TraceTimed(fmt.Sprintf("User#LoadPassphraseState(forceRepoll=%t)", arg.ForceRepoll), func() error { return err })()
 
 	currentUID := mctx.CurrentUID()
 	cacheKey := DbKey{
-		Typ: DBHasRandomPW,
+		Typ: DBLegacyHasRandomPW,
 		Key: currentUID.String(),
 	}
 
