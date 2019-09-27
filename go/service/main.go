@@ -1538,19 +1538,24 @@ func (d *hasRandomPWPrefetcher) prefetchHasRandomPW(g *libkb.GlobalContext, uid 
 				return nil
 			}
 
-			// We don't want to force repoll if there's cache, but we can also
-			// wait longer than few seconds.
-			arg := keybase1.LoadHasRandomPwArg{
-				ForceRepoll:    false,
-				NoShortTimeout: true,
-			}
-			randomPW, err := libkb.LoadHasRandomPw(mctx, arg)
+			state, err := libkb.LoadPassphraseState(mctx)
 			if err != nil {
-				mctx.Debug("Prefetching HasRandomPW failed: %s", err)
+				mctx.Debug("prefetchHasRandomPW: loading current passphrase state failed: %s", err)
+			}
+
+			if state == keybase1.PassphraseState_KNOWN {
+				// Can't go back to RANDOM
+				return nil
+			}
+
+			passphraseState, err := libkb.LoadPassphraseStateFromRemote(mctx)
+			if err != nil {
+				mctx.Debug("prefetchHasRandomPW: load from remote failed: %s", err)
 				return err
 			}
 
-			mctx.Debug("Prefetching HasRandomPW, result is HasRandomPW=%t", randomPW)
+			libkb.MaybeSavePassphraseState(passphraseState)
+			mctx.Debug("prefetchHasRandomPW: loaded passphraseState=%#v", passphraseState)
 			return nil
 		}, backoff.NewExponentialBackOff(), nil)
 		mctx.Debug("prefetchHasRandomPW: backoff loop returned: %v", err)

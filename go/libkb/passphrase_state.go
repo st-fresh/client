@@ -35,20 +35,20 @@ func LoadPassphraseState(mctx MetaContext, arg keybase1.LoadPassphraseStateArg) 
 
 	legacyState, err := loadPassphraseStateFromLegacy(mctx)
 	if err == nil {
-		maybeSavePassphraseState(legacyState)
+		MaybeSavePassphraseState(legacyState)
 		return legacyState, nil
 	}
 	mctx.Debug("LoadPassphraseState: could not find state in legacy leveldb (%s); checking remote", err)
 
 	remoteState, err := loadPassphraseStateFromRemote(mctx)
 	if err == nil {
-		maybeSavePassphraseState(remoteState)
+		MaybeSavePassphraseState(remoteState)
 		return remoteState, nil
 	}
 	return passphraseState, fmt.Errorf("failed to load passphrase state from remote: %s", err)
 }
 
-func maybeSavePassphraseState(mctx MetaContext, passphraseState keybase1.PassphraseState) {
+func MaybeSavePassphraseState(mctx MetaContext, passphraseState keybase1.PassphraseState) {
 	err := mctx.G().Env.GetConfigWriter().SetPassphraseState(passphraseState)
 	if err == nil {
 		mctx.Debug("Added PassphraseState=%#v to config file", passphraseState)
