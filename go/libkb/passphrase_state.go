@@ -26,15 +26,38 @@ func LoadPassphraseState(mctx MetaContext, arg keybase1.LoadPassphraseStateArg) 
 		return passphraseState, NewLoginRequiredError("LoadPassphraseState")
 	}
 
-	state := mctx.G().Env.GetConfigWriter().GetPassphraseState()
-
-	if state != nil {
+	configState := mctx.G().Env.GetConfigWriter().GetPassphraseState()
+	if configState != nil {
 		mctx.Debug("LoadPassphraseState: state found in config.json")
-		return *state
+		return *configState
 	}
-
 	mctx.Debug("LoadPassphraseState: state not found in config.json; checking legacy leveldb")
 
+	legacyState, err := loadPassphraseStateFromLegacy(mctx)
+	if err == nil {
+		maybeSavePassphraseState(legacyState)
+		return legacyState, nil
+	}
+	mctx.Debug("LoadPassphraseState: could not find state in legacy leveldb (%s); checking remote", err)
+
+	remoteState, err := loadPassphraseStateFromRemote(mctx)
+	if err == nil {
+		maybeSavePassphraseState(remoteState)
+		return remoteState, nil
+	}
+	return passphraseState, fmt.Errorf("failed to load passphrase state from remote: %s", err)
+}
+
+func maybeSavePassphraseState(mctx MetaContext, passphraseState keybase1.PassphraseState) {
+	err := mctx.G().Env.GetConfigWriter().SetPassphraseState(passphraseState)
+	if err == nil {
+		mctx.Debug("Added PassphraseState=%#v to config file", passphraseState)
+	} else {
+		mctx.Warning("Failed to save passphraseState=%#v to config file: %s", passphraseState, err)
+	}
+}
+
+func loadPassphraseStateFromLegacy(mctx MetaContext) (passphraseState keybase1.PassphraseState, err error) {
 	currentUID := mctx.CurrentUID()
 	cacheKey := DbKey{
 		Typ: DBLegacyHasRandomPW,
@@ -42,44 +65,16 @@ func LoadPassphraseState(mctx MetaContext, arg keybase1.LoadPassphraseStateArg) 
 	}
 	var hasRandomPassphrase bool
 	found, err := mctx.G().GetKVStore().GetInto(&hasRandomPassphrase, cacheKey)
-	if err == nil && found {
-		newState := randomPassphraseToState(hasRandomPassphrase)
-
-		err := mctx.G().Env.GetConfigWriter().SetPassphraseState(newState)
-		if err == nil {
-			mctx.Debug("Added PassphraseState=%#v to config file", newState)
-		} else {
-			mctx.Warning("Failed to save PassphraseState to config file: %s", err)
-		}
-
-		return newState, nil
+	if err != nil {
+		return passphraseState, err
 	}
-
-	mctx.Debug("LoadPassphraseState: passphrase state not found in leveldb, checking from remote (err=%s, found=%t)",
-		err, found)
-
-	newState := randomPassphraseToState(ret.RandomPassphrase)
-	if state == nil {
-		err := mctx.G().Env.GetConfigWriter().SetPassphraseState(newState)
-		if err == nil {
-			mctx.Debug("Added PassphraseState=%#v to config file", newState)
-		} else {
-			mctx.Warning("Failed to save PassphraseState to config file: %s", err)
-		}
+	if !found {
+		return passphraseState, fmt.Errorf("passphrase state not found in leveldb")
 	}
-
-	return newState, err
+	return randomPassphraseToState(hasRandomPassphrase), nil
 }
 
-func LoadPassphraseStateFromRemote(mctx MetaContext, arg keybase1.LoadPassphraseStateArg) (passphraseState keybase1.PassphraseState, err error) {
-	var initialTimeout time.Duration
-	if !arg.NoShortTimeout {
-		// If we are do not need accurate response from the API server, make
-		// the request with a timeout for quicker overall RPC response time
-		// if network is bad/unavailable.
-		initialTimeout = 3 * time.Second
-	}
-
+func loadPassphraseStateFromRemote(mctx MetaContext) (passphraseState keybase1.PassphraseState, err error) {
 	var ret struct {
 		AppStatusEmbed
 		RandomPassphrase bool `json:"random_pw"`
@@ -87,15 +82,15 @@ func LoadPassphraseStateFromRemote(mctx MetaContext, arg keybase1.LoadPassphrase
 	err = mctx.G().API.GetDecode(mctx, APIArg{
 		Endpoint:       "user/has_random_pw",
 		SessionType:    APISessionTypeREQUIRED,
-		InitialTimeout: initialTimeout,
+		InitialTimeout: 10 * time.Second,
 	}, &ret)
 	if err != nil {
 		return passphraseState, err
 	}
+	return randomPassphraseToState(ret.RandomPassphrase), nil
 }
 
 func CanLogout(mctx MetaContext) (res keybase1.CanLogoutRes) {
-
 	if !mctx.G().ActiveDevice.Valid() {
 		mctx.Debug("CanLogout: looks like user is not logged in")
 		res.CanLogout = true
