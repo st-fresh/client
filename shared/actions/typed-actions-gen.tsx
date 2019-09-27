@@ -768,6 +768,7 @@ export type TypedActionsMap = {
   'settings:saveProxyData': settings.SaveProxyDataPayload
   'settings:certificatePinningToggled': settings.CertificatePinningToggledPayload
   'settings:toggleRuntimeStats': settings.ToggleRuntimeStatsPayload
+  'settings:setNixOnLoginStartup': settings.SetNixOnLoginStartupPayload
   'signup:goBackAndClearErrors': signup.GoBackAndClearErrorsPayload
   'signup:requestAutoInvite': signup.RequestAutoInvitePayload
   'signup:requestedAutoInvite': signup.RequestedAutoInvitePayload

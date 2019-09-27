@@ -72,6 +72,7 @@ export const sendFeedback = 'settings:sendFeedback'
 export const sentVerificationEmail = 'settings:sentVerificationEmail'
 export const setAllowDeleteAccount = 'settings:setAllowDeleteAccount'
 export const setContactImportedCount = 'settings:setContactImportedCount'
+export const setNixOnLoginStartup = 'settings:setNixOnLoginStartup'
 export const stop = 'settings:stop'
 export const toggleRuntimeStats = 'settings:toggleRuntimeStats'
 export const trace = 'settings:trace'
@@ -166,6 +167,7 @@ type _SendFeedbackPayload = {
 type _SentVerificationEmailPayload = {readonly email: string}
 type _SetAllowDeleteAccountPayload = {readonly allow: boolean}
 type _SetContactImportedCountPayload = {readonly count: number | null; readonly error?: string}
+type _SetNixOnLoginStartupPayload = {readonly enabled: boolean}
 type _StopPayload = {readonly exitCode: RPCTypes.ExitCode}
 type _ToggleRuntimeStatsPayload = void
 type _TracePayload = {readonly durationSeconds: number}
@@ -472,6 +474,9 @@ export const createSetAllowDeleteAccount = (
 export const createSetContactImportedCount = (
   payload: _SetContactImportedCountPayload
 ): SetContactImportedCountPayload => ({payload, type: setContactImportedCount})
+export const createSetNixOnLoginStartup = (
+  payload: _SetNixOnLoginStartupPayload
+): SetNixOnLoginStartupPayload => ({payload, type: setNixOnLoginStartup})
 export const createStop = (payload: _StopPayload): StopPayload => ({payload, type: stop})
 export const createToggleRuntimeStats = (payload: _ToggleRuntimeStatsPayload): ToggleRuntimeStatsPayload => ({
   payload,
@@ -716,6 +721,10 @@ export type SetContactImportedCountPayload = {
   readonly payload: _SetContactImportedCountPayload
   readonly type: typeof setContactImportedCount
 }
+export type SetNixOnLoginStartupPayload = {
+  readonly payload: _SetNixOnLoginStartupPayload
+  readonly type: typeof setNixOnLoginStartup
+}
 export type StopPayload = {readonly payload: _StopPayload; readonly type: typeof stop}
 export type ToggleRuntimeStatsPayload = {
   readonly payload: _ToggleRuntimeStatsPayload
@@ -816,6 +825,7 @@ export type Actions =
   | SentVerificationEmailPayload
   | SetAllowDeleteAccountPayload
   | SetContactImportedCountPayload
+  | SetNixOnLoginStartupPayload
   | StopPayload
   | ToggleRuntimeStatsPayload
   | TracePayload
